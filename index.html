@@ -1,0 +1,369 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAPS Attendance System</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f1f5f9;color:#172033}
+header{background:#123c73;color:white;padding:15px;text-align:center}
+header img{width:75px;height:75px;object-fit:contain;background:white;border-radius:12px}
+header h2{margin:8px 0}
+header p{margin:5px}
+button,input,select{padding:10px;border-radius:7px;border:1px solid #ccc;font-size:15px}
+button{background:#174a87;color:white;border:0;cursor:pointer;margin:3px}
+button:hover{opacity:.9}
+input,select{width:100%;margin:5px 0}
+.card{background:white;padding:15px;margin:12px;border-radius:12px;box-shadow:0 2px 7px #ddd}
+nav{display:flex;flex-wrap:wrap;gap:4px;background:#e1eaf5;padding:8px}
+nav button{flex:1;min-width:90px}
+table{width:100%;border-collapse:collapse;margin-top:12px;background:white}
+th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:14px}
+th{background:#e8eff8}
+.hidden{display:none!important}
+.badge{padding:5px;border-radius:6px;background:#e5efff}
+.small{font-size:12px;color:#555}
+#app{max-width:1100px;margin:auto}
+@media(max-width:600px){th,td{font-size:12px;padding:5px}}
+</style>
+</head>
+
+<body>
+<div id="login" class="card" style="max-width:420px;margin:40px auto">
+<header>
+<h2>LAPS</h2>
+<p>London Academic Plan School</p>
+</header>
+<h3>Attendance Login</h3>
+<input id="email" type="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()" style="width:100%">Login</button>
+<p id="loginMsg"></p>
+</div>
+
+<div id="app" class="hidden">
+<header>
+<img src="laps-logo.png" alt="LAPS Logo" onerror="this.style.display='none'">
+<h2>LAPS</h2>
+<p>London Academic Plan School</p>
+<h3>Attendance Management System</h3>
+</header>
+
+<div class="card">
+Welcome: <b id="userEmail"></b>
+<button onclick="logout()" style="float:right">Logout</button>
+</div>
+
+<nav>
+<button onclick="showTab('attendance')">Attendance</button>
+<button onclick="showTab('students')">Students</button>
+<button onclick="showTab('reports')">Reports</button>
+<button id="promTab" onclick="showTab('promotion')">Promotion</button>
+<button id="settingsTab" onclick="showTab('settings')">Settings</button>
+</nav>
+
+<!-- ATTENDANCE -->
+<section id="attendance" class="card">
+<h3>Daily Attendance</h3>
+<label>Date</label><input type="date" id="attDate">
+<label>Class</label><select id="attClass" onchange="loadAttendance()"></select>
+<button onclick="loadAttendance()">Load Students</button>
+<button onclick="markAll('Present')">All Present</button>
+<button onclick="markAll('Absent')">All Absent</button>
+<div id="attendanceList"></div>
+<button onclick="saveAttendance()">Save Attendance</button>
+</section>
+
+<!-- STUDENTS -->
+<section id="students" class="card hidden">
+<h3>Student Register</h3>
+<div id="addStudentBox">
+<input id="stName" placeholder="Student Name">
+<input id="stFather" placeholder="Father Name">
+<input id="stPhone" placeholder="Parent WhatsApp Number">
+<select id="stClass"></select>
+<button onclick="addStudent()">Add Student</button>
+</div>
+<input id="searchStudent" placeholder="Search student..." oninput="renderStudents()">
+<div id="studentList"></div>
+</section>
+
+<!-- REPORTS -->
+<section id="reports" class="card hidden">
+<h3>Attendance Reports</h3>
+<label>Date</label><input type="date" id="reportDate">
+<label>Class</label><select id="reportClass"></select>
+<button onclick="makeReport()">View Report</button>
+<div id="reportResult"></div>
+</section>
+
+<!-- PROMOTION -->
+<section id="promotion" class="card hidden">
+<h3>Class Promotion</h3>
+<label>From Class</label><select id="promFrom"></select>
+<label>To Class</label><input id="promTo" placeholder="Class 2">
+<button onclick="previewPromotion()">Preview Students</button>
+<button onclick="selectAllPromotion(true)">Select All</button>
+<button onclick="selectAllPromotion(false)">Unselect All</button>
+<p id="promCount">Selected: 0</p>
+<div id="promotionList"></div>
+<button onclick="promoteClass()">Promote Selected Students</button>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="card hidden">
+<h3>Admin Settings</h3>
+<button onclick="exportStudents()">Export Students CSV</button>
+<button onclick="backupData()">Backup Data</button>
+<p>Data is saved in LAPS Firebase database.</p>
+</section>
+</div>
+
+<script>
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY_HERE",
+  authDomain: "laps-attendance.firebaseapp.com",
+  databaseURL: "https://laps-attendance-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "laps-attendance",
+  storageBucket: "laps-attendance.firebasestorage.app",
+  messagingSenderId: "723946421153",
+  appId: "1:723946421153:web:e4c35ee964c48ca6c429e0"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// Admin email: Firebase Users mein apna admin email rakhein
+const ADMIN_EMAIL = "msarwars226@gmail.com";
+
+let user=null, isAdmin=false;
+let students={}, records={}, attendanceStatus={}, promotionSelection={};
+
+const classes=[
+"Montessori","Step 1","Step 2","Step 3",
+"Class 1","Class 2","Class 3","Class 4","Class 5",
+"Class 6","Class 7","Class 8","Class 9","Class 10"
+];
+
+function today(){
+ return new Date().toLocaleDateString("en-CA");
+}
+document.getElementById("attDate").value=today();
+document.getElementById("reportDate").value=today();
+
+function fillClasses(){
+ ["attClass","stClass","reportClass","promFrom"].forEach(id=>{
+  const el=document.getElementById(id);
+  el.innerHTML=classes.map(c=>`<option>${c}</option>`).join("");
+ });
+}
+fillClasses();
+
+function login(){
+ const e=document.getElementById("email").value.trim();
+ const p=document.getElementById("password").value;
+ auth.signInWithEmailAndPassword(e,p)
+ .catch(err=>document.getElementById("loginMsg").innerText=err.message);
+}
+function logout(){auth.signOut()}
+
+auth.onAuthStateChanged(async u=>{
+ if(!u){
+  document.getElementById("login").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+  return;
+ }
+ user=u;
+ isAdmin=(u.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();
+ document.getElementById("login").classList.add("hidden");
+ document.getElementById("app").classList.remove("hidden");
+ document.getElementById("userEmail").innerText=u.email;
+ document.getElementById("promTab").classList.toggle("hidden",!isAdmin);
+ document.getElementById("settingsTab").classList.toggle("hidden",!isAdmin);
+ document.getElementById("addStudentBox").classList.toggle("hidden",!isAdmin);
+
+ db.ref("students").on("value",s=>{
+  students=s.val()||{};
+  renderStudents();
+ });
+ db.ref("attendance").on("value",s=>{
+  records=s.val()||{};
+  loadAttendance();
+ });
+});
+
+function showTab(id){
+ document.querySelectorAll("#app section").forEach(x=>x.classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+ if(id==="attendance")loadAttendance();
+ if(id==="students")renderStudents();
+}
+
+function addStudent(){
+ if(!isAdmin)return alert("Admin only");
+ const name=document.getElementById("stName").value.trim();
+ if(!name)return alert("Student name required");
+ const student={
+  name,
+  father:document.getElementById("stFather").value,
+  phone:document.getElementById("stPhone").value,
+  class:document.getElementById("stClass").value,
+  active:true
+ };
+ db.ref("students").push(student).then(()=>{
+  ["stName","stFather","stPhone"].forEach(id=>document.getElementById(id).value="");
+  alert("Student added");
+ });
+}
+
+function renderStudents(){
+ const q=(document.getElementById("searchStudent").value||"").toLowerCase();
+ let html="<table><tr><th>Name</th><th>Father</th><th>Class</th><th>Action</th></tr>";
+ Object.entries(students).forEach(([id,s])=>{
+  if(!s.active)return;
+  if(!(`${s.name} ${s.father} ${s.class}`.toLowerCase().includes(q)))return;
+  html+=`<tr><td>${esc(s.name)}</td><td>${esc(s.father||"")}</td><td>${esc(s.class)}</td>
+  <td>${isAdmin?`<button onclick="deleteStudent('${id}')">Delete</button>`:"-"}</td></tr>`;
+ });
+ document.getElementById("studentList").innerHTML=html+"</table>";
+}
+
+function deleteStudent(id){
+ if(!isAdmin)return;
+ if(confirm("Delete this student?"))
+ db.ref("students/"+id).remove();
+}
+
+function loadAttendance(){
+ const cls=document.getElementById("attClass").value;
+ const date=document.getElementById("attDate").value;
+ attendanceStatus={};
+ let html="<table><tr><th>Student</th><th>Status</th><th>WhatsApp</th></tr>";
+ Object.entries(students).forEach(([id,s])=>{
+  if(!s.active||s.class!==cls)return;
+  const old=records[date]?.[id]?.status||"Present";
+  attendanceStatus[id]=old;
+  html+=`<tr><td>${esc(s.name)}</td><td>
+  <select onchange="setStatus('${id}',this.value)">
+  ${["Present","Absent","Leave"].map(x=>`<option ${x===old?"selected":""}>${x}</option>`).join("")}
+  </select></td><td>
+  <button onclick="sendWA('${id}')">WhatsApp</button></td></tr>`;
+ });
+ document.getElementById("attendanceList").innerHTML=html+"</table>";
+}
+function setStatus(id,v){attendanceStatus[id]=v}
+function markAll(v){
+ Object.keys(students).forEach(id=>{
+  if(students[id].active&&students[id].class===document.getElementById("attClass").value)
+  attendanceStatus[id]=v;
+ });
+ loadAttendance();
+ Object.keys(attendanceStatus).forEach(id=>attendanceStatus[id]=v);
+ loadAttendance();
+}
+
+function saveAttendance(){
+ const date=document.getElementById("attDate").value;
+ const updates={};
+ Object.entries(attendanceStatus).forEach(([id,status])=>{
+  updates[`${date}/${id}`]={status,studentName:students[id]?.name||"",class:students[id]?.class||""};
+ });
+ db.ref("attendance").update(updates).then(()=>alert("Attendance saved"));
+}
+
+function sendWA(id){
+ const s=students[id];
+ if(!s.phone)return alert("Parent phone number missing");
+ const phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
+ const msg=`Assalam o Alaikum. ${s.name} is marked absent today at LAPS London Academic Plan School.`;
+ window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,"_blank");
+}
+
+function makeReport(){
+ const date=document.getElementById("reportDate").value;
+ const cls=document.getElementById("reportClass").value;
+ let p=0,a=0,l=0,html="<table><tr><th>Name</th><th>Status</th></tr>";
+ Object.entries(students).forEach(([id,s])=>{
+  if(!s.active||s.class!==cls)return;
+  const status=records[date]?.[id]?.status||"Not marked";
+  if(status==="Present")p++;
+  if(status==="Absent")a++;
+  if(status==="Leave")l++;
+  html+=`<tr><td>${esc(s.name)}</td><td>${status}</td></tr>`;
+ });
+ document.getElementById("reportResult").innerHTML=
+ `<p>Present: ${p} | Absent: ${a} | Leave: ${l}</p>${html}</table>`;
+}
+
+function previewPromotion(){
+ if(!isAdmin)return;
+ const cls=document.getElementById("promFrom").value;
+ promotionSelection={};
+ let html="<table><tr><th>Select</th><th>Name</th></tr>";
+ Object.entries(students).forEach(([id,s])=>{
+  if(s.active&&s.class===cls){
+   promotionSelection[id]=true;
+   html+=`<tr><td><input type="checkbox" checked onchange="togglePromotion('${id}',this.checked)"></td><td>${esc(s.name)}</td></tr>`;
+  }
+ });
+ document.getElementById("promotionList").innerHTML=html+"</table>";
+ updatePromotionCount();
+}
+function togglePromotion(id,v){promotionSelection[id]=v;updatePromotionCount()}
+function selectAllPromotion(v){
+ Object.keys(promotionSelection).forEach(id=>promotionSelection[id]=v);
+ previewPromotion();
+ Object.keys(promotionSelection).forEach(id=>promotionSelection[id]=v);
+ updatePromotionCount();
+ document.querySelectorAll("#promotionList input").forEach(x=>x.checked=v);
+}
+function updatePromotionCount(){
+ document.getElementById("promCount").innerText=
+ "Selected: "+Object.values(promotionSelection).filter(Boolean).length;
+}
+function promoteClass(){
+ if(!isAdmin)return alert("Admin only");
+ const to=document.getElementById("promTo").value.trim();
+ if(!to)return alert("Enter target class");
+ const selected=Object.keys(promotionSelection).filter(id=>promotionSelection[id]);
+ if(!selected.length)return alert("Select students first");
+ if(!confirm("Promote "+selected.length+" students to "+to+"?"))return;
+ const updates={};
+ selected.forEach(id=>updates[id+"/class"]=to);
+ db.ref("students").update(updates).then(()=>{
+  alert("Selected students promoted");
+  previewPromotion();
+ });
+}
+
+function exportStudents(){
+ let csv="Name,Father,Phone,Class\n";
+ Object.values(students).forEach(s=>{
+  if(s.active)csv+=`${s.name},${s.father||""},${s.phone||""},${s.class}\n`;
+ });
+ download(csv,"LAPS-Students.csv");
+}
+function backupData(){
+ download(JSON.stringify({students,attendance:records},null,2),"LAPS-Backup.json");
+}
+function download(data,name){
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([data],{type:"text/plain"}));
+ a.download=name;a.click();
+}
+function esc(s){
+ return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+</script>
+</body>
+  </html>
+  
