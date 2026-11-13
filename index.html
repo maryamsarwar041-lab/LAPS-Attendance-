@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#e5252a">
 <meta name="apple-mobile-web-app-capable" content="yes">
+
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./laps-icon-192.png">
+
 <title>LAPS Attendance System</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -41,10 +43,11 @@ th{background:#fff0a8;color:#7b1418}
 <!-- LOGIN -->
 <div id="login" class="card" style="max-width:420px;margin:40px auto">
 <header>
-<img class="logo" src="./laps-logo.png">
+<img class="logo" src="./laps-icon-192.png">
 <h2>LAPS</h2>
 <p>London Academic Plan School</p>
 </header>
+
 <h3>Attendance Login</h3>
 <input id="email" type="email" placeholder="Email">
 <input id="password" type="password" placeholder="Password">
@@ -56,7 +59,7 @@ th{background:#fff0a8;color:#7b1418}
 <div id="app" class="hidden">
 
 <header>
-<img class="logo" src="./laps-logo.png">
+<img class="logo" src="./laps-icon-192.png">
 <h2>LAPS</h2>
 <p>London Academic Plan School</p>
 <h3>Attendance Management System</h3>
@@ -168,7 +171,7 @@ firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth();
 const db=firebase.database();
 
-// ADMIN EMAIL
+// ADMIN EMAIL — SAME AS BEFORE
 const ADMIN_EMAIL="msarwars226@gmail.com";
 
 let user=null;
@@ -540,4 +543,3 @@ navigator.serviceWorker.register("./service-worker.js");
 </script>
 </body>
 </html>
-
