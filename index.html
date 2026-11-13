@@ -268,6 +268,59 @@ Thank you for your cooperation.
 LAPS Administration`;
 window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank")
 }
+
+async function makeMonthlyStudentReport(){
+let id=$("monthStudent").value;
+if(!id)return alert("Student select karein");
+
+let student=students[id];
+if(!student)return alert("Student not found");
+
+let month=Number($("monthPick").value);
+let year=Number($("yearPick").value);
+let days=new Date(year,month+1,0).getDate();
+
+let present=0,absent=0,leave=0,schoolDays=0;
+let rows=[];
+
+for(let day=1;day<=days;day++){
+let date=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+let dt=new Date(date+"T00:00:00");
+
+if(dt.getDay()===0){
+rows.push([date,"Sunday Off"]);
+continue;
+}
+
+schoolDays++;
+let snap=await db.ref("attendance/"+date+"/"+id).once("value");
+let st=snap.val()?.status||"Unmarked";
+
+if(st==="Present")present++;
+if(st==="Absent")absent++;
+if(st==="Leave")leave++;
+
+rows.push([date,st]);
+}
+
+let percentage=schoolDays?(present/schoolDays*100).toFixed(1):"0.0";
+
+monthlyData={student,month,year,present,absent,leave,schoolDays,percentage,rows};
+
+$("monthlyResult").innerHTML=`
+<h3>LAPS Monthly Attendance Report</h3>
+<p>Student: ${esc(student.name)}</p>
+<p>Class: ${esc(student.class)}</p>
+<p>Month: ${month+1}/${year}</p>
+<p>Present: ${present} | Absent: ${absent} | Leave: ${leave}</p>
+<p>Attendance: ${percentage}%</p>
+<table><tr><th>Date</th><th>Status</th></tr>
+${rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td></tr>`).join("")}
+</table>`;
+
+$("monthlyWA").innerHTML=isAdmin?
+`<button onclick="shareMonthlyWhatsApp('${id}')">WhatsApp Parent</button>`:"";
+  }
 </script>
 <script>
 async function makeReport(){
