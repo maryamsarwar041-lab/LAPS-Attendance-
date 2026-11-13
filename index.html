@@ -29,22 +29,23 @@ th,td{border:1px solid #e7e2d5;padding:9px}
 .note{font-size:13px;color:#666}
 .login{max-width:420px;margin:25px auto}
 @media(max-width:600px){th,td{padding:6px;font-size:13px}nav button{min-width:115px;padding:9px 5px}.panel{padding:10px}}
+@media print{header,nav,#loginPanel,.no-print{display:none!important}body{background:#fff}.panel{border:0}}
 </style>
 </head>
 <body>
-
 <header>
 <img class="logo" src="laps-icon-192.png" onerror="this.style.display='none'" alt="LAPS logo">
 <h2>LAPS</h2>
 <p>London Academic Plan School</p>
 <h3>Attendance Management System</h3>
 </header>
-
 <main>
 <section id="loginPanel" class="panel login">
 <h3>Staff Login</h3>
-<label>Email</label><input id="loginEmail" type="email" placeholder="Email address">
-<label>Password</label><input id="loginPassword" type="password" placeholder="Password">
+<label>Email</label>
+<input id="loginEmail" type="email" placeholder="Email address">
+<label>Password</label>
+<input id="loginPassword" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 <p class="note">Authorized school staff only.</p>
 </section>
@@ -69,10 +70,7 @@ th,td{border:1px solid #e7e2d5;padding:9px}
 <button onclick="markAll('Present')">All Present</button>
 <button onclick="markAll('Absent')">All Absent</button>
 </div>
-<table>
-<thead><tr><th>Student</th><th>Status</th><th>WhatsApp</th></tr></thead>
-<tbody id="attRows"></tbody>
-</table>
+<table><thead><tr><th>Student</th><th>Status</th><th>WhatsApp</th></tr></thead><tbody id="attRows"></tbody></table>
 <button onclick="saveAttendance()">Save Attendance</button>
 </section>
 
@@ -87,10 +85,7 @@ th,td{border:1px solid #e7e2d5;padding:9px}
 <button onclick="addStudent()">Add Student</button>
 </div>
 <button onclick="exportStudents()">Export Students CSV</button>
-<table>
-<thead><tr><th>Name</th><th>Roll</th><th>Class</th><th>Parent</th><th>WhatsApp</th><th>Action</th></tr></thead>
-<tbody id="studentRows"></tbody>
-</table>
+<table><thead><tr><th>Name</th><th>Roll</th><th>Class</th><th>Parent</th><th>WhatsApp</th><th>Action</th></tr></thead><tbody id="studentRows"></tbody></table>
 </section>
 
 <section id="reports" class="panel tab hide">
@@ -99,6 +94,40 @@ th,td{border:1px solid #e7e2d5;padding:9px}
 <label>Class (blank = all)</label><select id="repClass"><option value="">All classes</option></select>
 <button onclick="makeReport()">Generate Report</button>
 <button onclick="exportAttendance()">Export Attendance CSV</button>
+<hr>
+<h3>School Holidays / Extra Off / Vacations (Admin)</h3>
+<div class="no-print">
+<label>Holiday / Vacation Name</label><input id="holidayName" placeholder="Eid Holidays / Summer Vacations">
+<div class="flex">
+<div><label>From Date</label><input id="holidayFrom" type="date"></div>
+<div><label>To Date</label><input id="holidayTo" type="date"></div>
+</div>
+<button onclick="addHoliday()">Add Holiday / Vacation</button>
+<p class="note">Admin dates add/remove kar sakta hai. Sundays automatically off hain.</p>
+</div>
+<div id="holidayList"></div>
+<hr>
+<h3>Individual Monthly Student Report</h3>
+<label>Student</label><select id="monthStudent"><option value="">Select student</option></select>
+<div class="flex">
+<div><label>Month</label><select id="monthPick"></select></div>
+<div><label>Year</label><select id="yearPick"></select></div>
+</div>
+<button onclick="makeMonthlyStudentReport()">Generate Student Report</button>
+<button onclick="printMonthlyReport()">Print / Save PDF</button>
+<div id="monthlyResult"></div>
+<div id="monthlyWA" class="no-print"></div>
+<hr>
+<h3>Class-wise Monthly Attendance Report</h3>
+<label>Select Class</label><select id="classMonthPick"><option value="">Select Class</option></select>
+<div class="flex">
+<div><label>Month</label><select id="classMonth"></select></div>
+<div><label>Year</label><select id="classYear"></select></div>
+</div>
+<button onclick="makeClassMonthlyReport()">Generate Class Report</button>
+<button onclick="printClassReport()">Print / Save PDF</button>
+<button onclick="exportClassMonthlyCSV()">Export CSV</button>
+<div id="classMonthlyResult"></div>
 <div id="reportResult"></div>
 </section>
 
@@ -110,17 +139,16 @@ th,td{border:1px solid #e7e2d5;padding:9px}
 <section id="settings" class="panel tab hide">
 <h3>Settings & Backup</h3>
 <button onclick="backup()">Backup JSON</button>
-<label>Restore JSON backup</label><input type="file" id="restoreFile" accept=".json">
+<label>Restore JSON backup</label>
+<input type="file" id="restoreFile" accept=".json">
 <button onclick="restore()">Restore Backup</button>
 <p class="note">Database backup includes students and attendance.</p>
 </section>
 </section>
 </main>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
 <script>
 const firebaseConfig={
 apiKey:"AIzaSyBTlS98na0XljQUKaOU-_s3J2Seyy1BuIo",
@@ -132,14 +160,19 @@ messagingSenderId:"723946421153",
 appId:"1:723946421153:web:e4c35ee964c48ca6c429e0",
 measurementId:"G-5MG5W8Q444"
 };
-
 firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth(),db=firebase.database();
-const ADMIN="msarwars226@gmail.com";
-let user=null,isAdmin=false,students={},statusMap={},scope="";
-const $=id=>document.getElementById(id);
-const today=new Date().toISOString().slice(0,10);
+const auth=firebase.auth(),db=firebase.database(),ADMIN="msarwars226@gmail.com";
+let user=null,isAdmin=false,students={},statusMap={},monthlyData=null;
+const $=id=>document.getElementById(id),today=new Date().toISOString().slice(0,10);
 $("attDate").value=today;$("repDate").value=today;
+
+(function initMonthYear(){
+let now=new Date();
+$("monthPick").innerHTML=Array.from({length:12},(_,m)=>
+`<option value="${m}" ${m===now.getMonth()?"selected":""}>${new Date(2000,m,1).toLocaleString("en",{month:"long"})}</option>`).join("");
+let y=now.getFullYear();
+$("yearPick").innerHTML=Array.from({length:7},(_,i)=>y-3+i).map(n=>`<option ${n===y?"selected":""}>${n}</option>`).join("")
+})();
 
 auth.onAuthStateChanged(async u=>{
 user=u;
@@ -150,7 +183,7 @@ isAdmin=(u.email||"").toLowerCase()===ADMIN.toLowerCase();
 $("who").textContent=u.email;
 $("settingsNav").classList.toggle("hide",!isAdmin);
 $("studentForm").classList.toggle("hide",!isAdmin);
-await getStudents();
+await getStudents()
 });
 
 async function login(){
@@ -162,76 +195,68 @@ function showTab(id){
 document.querySelectorAll(".tab").forEach(x=>x.classList.add("hide"));
 $(id).classList.remove("hide");
 if(id==="attendance")loadAttendance();
+if(id==="reports"){fillMonthlyStudents();loadHolidays()}
 }
-
 async function getStudents(){
 let s=await db.ref("students").once("value");
 students=s.val()||{};
-renderStudents();fillClasses();
+renderStudents();fillClasses();fillMonthlyStudents()
 }
 function fillClasses(){
 let cs=[...new Set(Object.values(students).map(s=>s.class).filter(Boolean))].sort();
 $("attClass").innerHTML='<option value="">Select Class</option>'+cs.map(c=>`<option>${esc(c)}</option>`).join("");
 $("repClass").innerHTML='<option value="">All classes</option>'+cs.map(c=>`<option>${esc(c)}</option>`).join("");
+$("classMonthPick").innerHTML='<option value="">Select Class</option>'+cs.map(c=>`<option>${esc(c)}</option>`).join("")
+}
+function fillMonthlyStudents(){
+let old=$("monthStudent").value;
+$("monthStudent").innerHTML='<option value="">Select student</option>'+Object.entries(students).map(([id,s])=>`<option value="${id}">${esc(s.name)} — ${esc(s.roll||"")} (${esc(s.class||"")})</option>`).join("");
+if(old&&students[old])$("monthStudent").value=old
 }
 function renderStudents(){
-$("studentRows").innerHTML=Object.entries(students).map(([id,s])=>`<tr>
-<td>${esc(s.name)}</td><td>${esc(s.roll||"")}</td><td>${esc(s.class||"")}</td>
-<td>${esc(s.parent||"")}</td><td>${esc(s.phone||"")}</td>
-<td>${isAdmin?`<button onclick="delStudent('${id}')">Delete</button>`:"—"}</td></tr>`).join("");
+$("studentRows").innerHTML=Object.entries(students).map(([id,s])=>
+`<tr><td>${esc(s.name)}</td><td>${esc(s.roll||"")}</td><td>${esc(s.class||"")}</td><td>${esc(s.parent||"")}</td><td>${esc(s.phone||"")}</td><td><button onclick="deleteStudent('${id}')">Delete</button></td></tr>`).join("")
 }
 async function addStudent(){
 if(!isAdmin)return alert("Admin only");
-let name=$("stName").value.trim(),cls=$("stClass").value.trim();
-if(!name||!cls)return alert("Name aur class zaroor likhein");
-await db.ref("students").push({
-name,roll:$("stRoll").value.trim(),class:cls,
-parent:$("stParent").value.trim(),phone:$("stPhone").value.trim()
-});
+let name=$("stName").value.trim(),roll=$("stRoll").value.trim(),cls=$("stClass").value.trim(),parent=$("stParent").value.trim(),phone=$("stPhone").value.trim();
+if(!name||!cls)return alert("Student name aur class required");
+let id=db.ref("students").push().key;
+await db.ref("students/"+id).set({name,roll,class:cls,parent,phone});
 ["stName","stRoll","stClass","stParent","stPhone"].forEach(x=>$(x).value="");
-getStudents();
+await getStudents();alert("Student added")
 }
-async function delStudent(id){
-if(isAdmin&&confirm("Delete student?")){
-await db.ref("students/"+id).remove();getStudents();
+async function deleteStudent(id){
+if(!isAdmin)return alert("Admin only");
+if(confirm("Delete student?")){await db.ref("students/"+id).remove();await getStudents()}
 }
-}
-
 async function loadAttendance(){
-let date=$("attDate").value,cls=$("attClass").value;
-if(!cls)return alert("Please select class");
-let key=date+"|"+cls;
-if(scope!==key){statusMap={};scope=key}
+let cls=$("attClass").value,date=$("attDate").value;
+if(!cls)return;
+if(new Date(date+"T00:00:00").getDay()===0)return alert("Sunday is off");
+if(await holidayForDate(date))return alert("Holiday — attendance disabled");
 let snap=await db.ref("attendance/"+date).once("value"),rec=snap.val()||{};
-let list=Object.entries(students).filter(([i,s])=>s.class===cls&&s.active!==false);
-$("attRows").innerHTML=list.map(([id,s])=>{
-let v=statusMap[id]??rec[id]?.status??"Present";statusMap[id]=v;
-return `<tr><td>${esc(s.name)}</td><td>
-<select onchange="setStatus('${id}',this.value)">
-<option ${v==="Present"?"selected":""}>Present</option>
-<option ${v==="Absent"?"selected":""}>Absent</option>
-<option ${v==="Leave"?"selected":""}>Leave</option>
-</select></td><td>${isAdmin&&v==="Absent"?`<button onclick="wa('${id}')">WhatsApp</button>`:"—"}</td></tr>`;
-}).join("");
+statusMap={};
+$("attRows").innerHTML=Object.entries(students).filter(([id,s])=>s.class===cls).map(([id,s])=>{
+statusMap[id]=rec[id]?.status||"Present";
+return `<tr><td>${esc(s.name)} (${esc(s.roll||"")})</td><td><select onchange="statusMap['${id}']=this.value"><option ${statusMap[id]==="Present"?"selected":""}>Present</option><option ${statusMap[id]==="Absent"?"selected":""}>Absent</option><option ${statusMap[id]==="Leave"?"selected":""}>Leave</option></select></td><td><button onclick="wa('${id}')">WhatsApp</button></td></tr>`
+}).join("")
 }
-function setStatus(id,v){statusMap[id]=v;loadAttendance()}
-function markAll(v){
-Object.entries(students).filter(([id,s])=>s.class===$("attClass").value).forEach(([id])=>statusMap[id]=v);
-loadAttendance();
-}
+function markAll(st){Object.keys(statusMap).forEach(id=>statusMap[id]=st);loadAttendanceRows()}
+function loadAttendanceRows(){let cls=$("attClass").value;Object.entries(students).filter(([id,s])=>s.class===cls).forEach(([id,s])=>{let sel=document.querySelector(`select[onchange*="${id}"]`);if(sel)sel.value=statusMap[id]})}
 async function saveAttendance(){
-let date=$("attDate").value,updates={};
-Object.entries(statusMap).forEach(([id,status])=>updates[id]={
-status,studentName:students[id]?.name||"",class:students[id]?.class||""
-});
+if(!isAdmin)return alert("Admin only");
+let date=$("attDate").value;
+if(!date)return alert("Date select karein");
+if(new Date(date+"T00:00:00").getDay()===0||await holidayForDate(date))return alert("Sunday/Holiday attendance allowed nahi");
+let updates={};
+Object.entries(statusMap).forEach(([id,status])=>updates[id]={status,studentName:students[id]?.name||"",class:students[id]?.class||""});
 await db.ref("attendance/"+date).update(updates);
-alert("Attendance saved");loadAttendance();
+alert("Attendance saved");loadAttendance()
 }
-
 function wa(id){
 if(!isAdmin)return alert("Admin only");
-let s=students[id];
-if(!s.phone)return alert("Parent WhatsApp number missing");
+let s=students[id];if(!s.phone)return alert("Parent WhatsApp number missing");
 let phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
 let msg=`Assalam-o-Alaikum Dear Parents,
 
@@ -241,9 +266,10 @@ Kindly let us know the reason for your child's absence.
 
 Thank you for your cooperation.
 LAPS Administration`;
-window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank");
+window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank")
 }
-
+</script>
+<script>
 async function makeReport(){
 let d=$("repDate").value,cls=$("repClass").value;
 let s=await db.ref("attendance/"+d).once("value"),r=s.val()||{};
@@ -251,22 +277,85 @@ let n={Present:0,Absent:0,Leave:0,Unmarked:0};
 Object.entries(students).filter(([id,x])=>!cls||x.class===cls).forEach(([id])=>{
 let st=r[id]?.status||"Unmarked";n[st]=(n[st]||0)+1
 });
-$("reportResult").innerHTML=`<p>Present: ${n.Present} | Absent: ${n.Absent} | Leave: ${n.Leave} | Unmarked: ${n.Unmarked}</p>`;
+$("reportResult").innerHTML=`<p>Present: ${n.Present} | Absent: ${n.Absent} | Leave: ${n.Leave} | Unmarked: ${n.Unmarked}</p>`
 }
+async function loadHolidays(){
+let snap=await db.ref("holidays").once("value"),h=snap.val()||{};
+$("holidayList").innerHTML=Object.entries(h).sort((a,b)=>a[0].localeCompare(b[0])).map(([key,x])=>
+`<div class="panel"><b>${esc(x.name||"Holiday")}</b> — ${esc(x.from||key)} to ${esc(x.to||key)} ${isAdmin?`<button class="no-print" onclick="deleteHoliday('${key}')">Remove</button>`:""}</div>`).join("")||"<p>No extra holidays added.</p>"
+}
+async function addHoliday(){
+if(!isAdmin)return alert("Admin only");
+let name=$("holidayName").value.trim(),from=$("holidayFrom").value,to=$("holidayTo").value;
+if(!name||!from||!to)return alert("Holiday name aur dates fill karein");
+if(from>to)return alert("From date, To date se pehle honi chahiye");
+let key=from+"_"+to+"_"+Date.now();
+await db.ref("holidays/"+key).set({name,from,to,createdBy:user.email});
+$("holidayName").value="";$("holidayFrom").value="";$("holidayTo").value="";
+await loadHolidays();alert("Holiday added")
+}
+async function deleteHoliday(key){
+if(!isAdmin)return alert("Admin only");
+if(confirm("Remove this holiday?")){await db.ref("holidays/"+key).remove();loadHolidays()}
+}
+async function holidayForDate(date){
+let snap=await db.ref("holidays").once("value"),h=snap.val()||{};
+for(let x of Object.values(h)){if(x.from&&x.to&&date>=x.from&&date<=x.to)return x.name||"Holiday"}
+return null
+}
+async function makeMonthlyStudentReport(){
+let id=$("monthStudent").value;
+if(!id)return alert("Student select karein");
+let student=students[id];if(!student)return alert("Student not found");
+let month=Number($("monthPick").value),year=Number($("yearPick").value),days=new Date(year,month+1,0).getDate(),present=0,absent=0,leave=0,schoolDays=0,rows=[];
+for(let day=1;day<=days;day++){
+let date=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`,dt=new Date(date+"T00:00:00");
+if(dt.getDay()===0){rows.push([date,"Sunday Holiday"]);continue}
+let holiday=await holidayForDate(date);
+if(holiday){rows.push([date,holiday]);continue}
+schoolDays++;
+let snap=await db.ref("attendance/"+date+"/"+id).once("value"),rec=snap.val(),st=rec?.status||"Unmarked";
+if(st==="Present")present++;else if(st==="Absent")absent++;else if(st==="Leave")leave++;
+rows.push([date,st])
+}
+let marked=present+absent+leave,percent=schoolDays?((present/schoolDays)*100).toFixed(1):"0.0";
+monthlyData={student,month,year,present,absent,leave,schoolDays,marked,percent,rows};
+$("monthlyResult").innerHTML=`<div id="printArea"><h2>LAPS — Monthly Student Attendance Report</h2><p><b>Student:</b> ${esc(student.name)} &nbsp; <b>Roll:</b> ${esc(student.roll||"—")} &nbsp; <b>Class:</b> ${esc(student.class||"—")}</p><p><b>Month:</b> ${new Date(year,month,1).toLocaleString("en",{month:"long"})} ${year}</p><p><b>Present:</b> ${present} &nbsp; <b>Absent:</b> ${absent} &nbsp; <b>Leave:</b> ${leave} &nbsp; <b>School days (Sun off):</b> ${schoolDays} &nbsp; <b>Attendance:</b> ${percent}%</p><table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td>${esc(r[1])}</td></tr>`).join("")}</tbody></table><p>Generated by LAPS Attendance Management System</p></div>`;
+$("monthlyWA").innerHTML=isAdmin?`<button onclick="shareMonthlyWhatsApp('${id}')">WhatsApp Parent (Report Summary)</button><p class="note">WhatsApp opens a summary message; PDF can be saved from Print and attached manually.</p>`:""
+}
+function printMonthlyReport(){if(!monthlyData)return alert("Pehle report generate karein");window.print()}
+function shareMonthlyWhatsApp(id){
+if(!isAdmin)return alert("Admin only");
+let s=students[id];if(!s?.phone)return alert("Parent WhatsApp number missing");
+if(!monthlyData||monthlyData.student!==s)return alert("Report generate karein");
+let phone=s.phone.replace(/\D/g,"").replace(/^0/,"92"),m=monthlyData;
+let msg=`Assalam-o-Alaikum Dear Parent,
+
+${m.student.name} (${m.student.class}) — ${new Date(m.year,m.month,1).toLocaleString("en",{month:"long"})} ${m.year} Attendance Report:
+Present: ${m.present}
+Absent: ${m.absent}
+Leave: ${m.leave}
+Attendance: ${m.percent}%
+
+Regards, LAPS`;
+window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank")
+}
+</script>
+<script>
 function csvDownload(name,rows){
-let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\n");
-let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name;a.click();
+let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\n"),a=document.createElement("a");
+a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name;a.click()
 }
 function exportStudents(){
-csvDownload("LAPS_Students.csv",[["Name","Roll","Class","Parent","Phone"],...Object.values(students).map(s=>[s.name,s.roll,s.class,s.parent,s.phone])]);
+csvDownload("LAPS_Students.csv",[["Name","Roll","Class","Parent","Phone"],...Object.values(students).map(s=>[s.name,s.roll,s.class,s.parent,s.phone])])
 }
 async function exportAttendance(){
 let d=$("repDate").value,s=await db.ref("attendance/"+d).once("value"),r=s.val()||{};
-csvDownload("LAPS_Attendance.csv",[["Name","Roll","Class","Status"],...Object.entries(students).filter(([id,s])=>!$("repClass").value||s.class===$("repClass").value).map(([id,s])=>[s.name,s.roll,s.class,r[id]?.status||"Unmarked"])]);
+csvDownload("LAPS_Attendance.csv",[["Name","Roll","Class","Status"],...Object.entries(students).filter(([id,s])=>!$("repClass").value||s.class===$("repClass").value).map(([id,s])=>[s.name,s.roll,s.class,r[id]?.status||"Unmarked"])])
 }
 async function backup(){
 let a=await db.ref().once("value"),blob=new Blob([JSON.stringify(a.val(),null,2)],{type:"application/json"}),link=document.createElement("a");
-link.href=URL.createObjectURL(blob);link.download="LAPS_Backup.json";link.click();
+link.href=URL.createObjectURL(blob);link.download="LAPS_Backup.json";link.click()
 }
 async function restore(){
 if(!isAdmin)return alert("Admin only");
@@ -274,7 +363,60 @@ let f=$("restoreFile").files[0];if(!f)return alert("Backup file select karein");
 let data=JSON.parse(await f.text());
 if(confirm("Restore database backup?")){await db.ref().set(data);alert("Backup restored");location.reload()}
 }
-function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function esc(v){
+return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))
+}
+
+let classMonthlyData=[];
+(function initClassMonthYear(){
+if(!$("classMonth"))return;
+$("classMonth").innerHTML=$("monthPick").innerHTML;
+$("classYear").innerHTML=$("yearPick").innerHTML;
+$("classMonth").value=$("monthPick").value;
+$("classYear").value=$("yearPick").value
+})();
+async function makeClassMonthlyReport(){
+let cls=$("classMonthPick").value;if(!cls)return alert("Class select karein");
+let month=Number($("classMonth").value),year=Number($("classYear").value),days=new Date(year,month+1,0).getDate();
+let list=Object.entries(students).filter(([id,s])=>s.class===cls),holidays=(await db.ref("holidays").once("value")).val()||{},data=[];
+for(let [id,s] of list){
+let present=0,absent=0,leave=0,schoolDays=0;
+for(let day=1;day<=days;day++){
+let date=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+if(new Date(date+"T00:00:00").getDay()===0)continue;
+if(Object.values(holidays).some(h=>h.from&&h.to&&date>=h.from&&date<=h.to))continue;
+schoolDays++;
+let snap=await db.ref("attendance/"+date+"/"+id).once("value"),st=snap.val()?.status||"Unmarked";
+if(st==="Present")present++;else if(st==="Absent")absent++;else if(st==="Leave")leave++;
+}
+data.push({id,name:s.name,roll:s.roll||"",cls:s.class,phone:s.phone||"",present,absent,leave,schoolDays,percentage:schoolDays?(present/schoolDays*100).toFixed(1):"0.0"})
+}
+classMonthlyData=data;
+$("classMonthlyResult").innerHTML=`<div id="classPrintArea"><h2>LAPS — Class Monthly Attendance</h2><p>Class: ${esc(cls)} | ${new Date(year,month,1).toLocaleString("en",{month:"long"})} ${year}</p><table><thead><tr><th>Student</th><th>Roll</th><th>Present</th><th>Absent</th><th>Leave</th><th>School Days</th><th>%</th><th class="no-print">Parent WhatsApp</th></tr></thead><tbody>${data.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.roll)}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.leave}</td><td>${s.schoolDays}</td><td>${s.percentage}%</td><td class="no-print">${isAdmin&&s.phone?`<button onclick="sendClassStudentWA('${s.id}')">Send Child Report</button>`:"—"}</td></tr>`).join("")}</tbody></table></div>`
+}
+function sendClassStudentWA(id){
+if(!isAdmin)return alert("Admin only");
+let s=classMonthlyData.find(x=>x.id===id);if(!s||!s.phone)return alert("Parent WhatsApp number missing");
+let m=Number($("classMonth").value),y=Number($("classYear").value),phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
+let msg=`Assalam-o-Alaikum Dear Parent,
+
+Monthly Attendance Report — LAPS
+Student: ${s.name}
+Class: ${s.cls}
+Month: ${new Date(y,m,1).toLocaleString("en",{month:"long"})} ${y}
+Present: ${s.present}
+Absent: ${s.absent}
+Leave: ${s.leave}
+Attendance: ${s.percentage}%
+
+Regards, LAPS Administration`;
+window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank")
+}
+function printClassReport(){if(!classMonthlyData.length)return alert("Report generate karein");window.print()}
+function exportClassMonthlyCSV(){
+if(!classMonthlyData.length)return alert("Report generate karein");
+csvDownload("LAPS_Class_Monthly.csv",[["Student","Roll","Class","Present","Absent","Leave","School Days","Percentage"],...classMonthlyData.map(s=>[s.name,s.roll,s.cls,s.present,s.absent,s.leave,s.schoolDays,s.percentage+"%"])])
+}
 </script>
 </body>
 </html>
