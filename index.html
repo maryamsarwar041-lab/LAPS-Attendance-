@@ -6,6 +6,7 @@
 <title>LAPS Attendance</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#123b65">
+
 <style>
 *{box-sizing:border-box}
 body{font-family:Arial,sans-serif;margin:0;background:#f3f6fa;color:#172033}
@@ -26,11 +27,13 @@ th{background:#edf2f7}
 @media(max-width:600px){table{font-size:13px}th,td{padding:5px}}
 </style>
 </head>
+
 <body>
 <header>
 <h2>LAPS London Academic Plan School</h2>
 <div>Attendance Management</div>
 </header>
+
 <main>
 <section class="card" id="loginBox">
 <h3>Login</h3>
@@ -41,6 +44,7 @@ th{background:#edf2f7}
 </section>
 
 <section id="app" class="hidden">
+
 <div class="card row">
 <div id="welcome"></div>
 <button class="secondary" onclick="logout()">Logout</button>
@@ -52,8 +56,9 @@ th{background:#edf2f7}
 <input id="sname" placeholder="Student name">
 <input id="sclass" placeholder="Class">
 <input id="sphone" placeholder="Parent WhatsApp (03...)">
-<button onclick="addStudent()">Add Student</button>
+<button id="addStudentBtn" onclick="addStudent()">Add Student</button>
 </div>
+
 <table>
 <thead><tr><th>Name</th><th>Class</th><th>Parent phone</th><th>Action</th></tr></thead>
 <tbody id="studentRows"></tbody>
@@ -71,10 +76,12 @@ th{background:#edf2f7}
 <button class="secondary" onclick="markAll('Present')">All Present</button>
 <button class="secondary" onclick="markAll('Absent')">All Absent</button>
 </div>
+
 <table>
 <thead><tr><th>Student</th><th>Status</th><th>Parent</th></tr></thead>
 <tbody id="attendanceRows"></tbody>
 </table>
+
 <button onclick="saveAttendance()">Save Attendance</button>
 </div>
 
@@ -87,6 +94,7 @@ th{background:#edf2f7}
 </div>
 <div id="reportOut"></div>
 </div>
+
 </section>
 </main>
 
@@ -107,32 +115,48 @@ const firebaseConfig={
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth=firebase.auth(),db=firebase.database();
+
+const auth=firebase.auth();
+const db=firebase.database();
 const ADMIN="msarwars226@gmail.com";
 
-let user=null,students={},records={},attendanceStatus={},attendanceScope="";
+let user=null;
+let isAdmin=false;
+let students={};
+let records={};
+let attendanceStatus={};
+let attendanceScope="";
 
 document.getElementById("date").value=new Date().toISOString().slice(0,10);
 document.getElementById("reportDate").value=document.getElementById("date").value;
 
 auth.onAuthStateChanged(async u=>{
  user=u;
+
  document.getElementById("loginBox").classList.toggle("hidden",!!u);
  document.getElementById("app").classList.toggle("hidden",!u);
+
  if(u){
- document.getElementById("welcome").textContent="Logged in: "+u.email;
- await loadStudents();
- await loadAttendance();
+  isAdmin=(u.email||"").toLowerCase()===ADMIN.toLowerCase();
+  document.getElementById("welcome").textContent="Logged in: "+u.email;
+  document.getElementById("addStudentBtn").classList.toggle("hidden",!isAdmin);
+
+  await loadStudents();
+  await loadAttendance();
  }
 });
 
 async function login(){
  try{
- await auth.signInWithEmailAndPassword(email.value.trim(),password.value)
- }catch(e){alert(e.message)}
+  await auth.signInWithEmailAndPassword(email.value.trim(),password.value);
+ }catch(e){
+  alert(e.message);
+ }
 }
 
-function logout(){auth.signOut()}
+function logout(){
+ auth.signOut();
+}
 
 async function loadStudents(){
  const s=await db.ref("students").once("value");
@@ -143,47 +167,73 @@ async function loadStudents(){
 
 function renderStudents(){
  studentRows.innerHTML=Object.entries(students).map(([id,s])=>
- `<tr><td>${esc(s.name)}</td><td>${esc(s.class)}</td><td>${esc(s.phone||"")}</td><td><button class="danger" onclick="deleteStudent('${id}')">Delete</button></td></tr>`
+ `<tr>
+ <td>${esc(s.name)}</td>
+ <td>${esc(s.class)}</td>
+ <td>${esc(s.phone||"")}</td>
+ <td>${isAdmin?`<button class="danger" onclick="deleteStudent('${id}')">Delete</button>`:"-"}</td>
+ </tr>`
  ).join("");
 }
 
 async function addStudent(){
- const name=sname.value.trim(),cls=sclass.value.trim(),phone=sphone.value.trim();
- if(!name||!cls){alert("Student name aur class likhein");return}
+ if(!isAdmin)return alert("Admin only");
+
+ const name=sname.value.trim();
+ const cls=sclass.value.trim();
+ const phone=sphone.value.trim();
+
+ if(!name||!cls){
+  alert("Student name aur class likhein");
+  return;
+ }
+
  const ref=db.ref("students").push();
  await ref.set({name,class:cls,phone});
- sname.value=sclass.value=sphone.value="";
+
+ sname.value="";
+ sclass.value="";
+ sphone.value="";
+
  await loadStudents();
 }
 
 async function deleteStudent(id){
+ if(!isAdmin)return alert("Admin only");
+
  if(confirm("Student delete karna hai?")){
- await db.ref("students/"+id).remove();
- await loadStudents();
- loadAttendance();
+  await db.ref("students/"+id).remove();
+  await loadStudents();
+  loadAttendance();
  }
 }
 
 function populateClasses(){
  const classes=[...new Set(Object.values(students).map(s=>s.class))].sort();
- classFilter.innerHTML='<option value="">All classes</option>'+classes.map(c=>`<option>${esc(c)}</option>`).join("");
+
+ classFilter.innerHTML=
+ '<option value="">All classes</option>'+
+ classes.map(c=>`<option>${esc(c)}</option>`).join("");
 }
 
 async function loadAttendance(){
  if(!user)return;
+
  const date=document.getElementById("date").value;
  const cls=classFilter.value;
  const scope=date+"|"+cls;
 
  if(scope!==attendanceScope){
- attendanceStatus={};
- attendanceScope=scope;
+  attendanceStatus={};
+  attendanceScope=scope;
  }
 
  const snap=await db.ref("attendance/"+date).once("value");
  records[date]=snap.val()||{};
 
- const list=Object.entries(students).filter(([id,s])=>!cls||s.class===cls);
+ const list=Object.entries(students).filter(([id,s])=>
+ s.active!==false&&(!cls||s.class===cls)
+ );
 
  attendanceRows.innerHTML=list.map(([id,s])=>{
  const status=attendanceStatus[id]??records[date][id]?.status??"Present";
@@ -198,12 +248,11 @@ async function loadAttendance(){
  <option ${status==="Leave"?"selected":""}>Leave</option>
  </select>
  </td>
- <td>${status==="Absent"?`<button onclick="sendWA('${id}')">WhatsApp</button>`:""}</td>
+ <td>${isAdmin&&status==="Absent"?`<button onclick="sendWA('${id}')">WhatsApp</button>`:"-"}</td>
  </tr>`;
  }).join("");
 }
 
-// Status change par WhatsApp button foran update hoga
 function setStatus(id,v){
  attendanceStatus[id]=v;
  loadAttendance();
@@ -211,25 +260,39 @@ function setStatus(id,v){
 
 function markAll(v){
  Object.entries(students)
- .filter(([id,s])=>!classFilter.value||s.class===classFilter.value)
+ .filter(([id,s])=>s.active!==false&&(!classFilter.value||s.class===classFilter.value))
  .forEach(([id])=>attendanceStatus[id]=v);
+
  loadAttendance();
 }
 
 async function saveAttendance(){
- const date=document.getElementById("date").value,updates={};
- Object.entries(attendanceStatus).forEach(([id,status])=>
- updates[id]={status,studentName:students[id]?.name||"",class:students[id]?.class||""}
- );
+ const date=document.getElementById("date").value;
+ const updates={};
+
+ Object.entries(attendanceStatus).forEach(([id,status])=>{
+  updates[id]={
+   status,
+   studentName:students[id]?.name||"",
+   class:students[id]?.class||""
+  };
+ });
+
  await db.ref("attendance/"+date).update(updates);
+
  alert("Attendance save ho gai");
  loadAttendance();
 }
 
-// WhatsApp sirf Absent students ke liye
 function sendWA(id){
+ if(!isAdmin)return alert("Admin only");
+
  const s=students[id];
- if(!s?.phone){alert("Parent phone number available nahi");return}
+
+ if(!s?.phone){
+  alert("Parent phone number available nahi");
+  return;
+ }
 
  const phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
 
@@ -244,7 +307,10 @@ Thank you for your cooperation.
 Regards,
 LAPS Administration`;
 
- window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank");
+ window.open(
+ "https://wa.me/"+phone+"?text="+encodeURIComponent(msg),
+ "_blank"
+ );
 }
 
 async function report(){
@@ -253,15 +319,27 @@ async function report(){
  const r=s.val()||{};
  const counts={Present:0,Absent:0,Leave:0};
 
- Object.values(r).forEach(x=>counts[x.status]=(counts[x.status]||0)+1);
+ Object.values(r).forEach(x=>
+ counts[x.status]=(counts[x.status]||0)+1
+ );
 
- reportOut.innerHTML=`<p>Date: ${d}</p>
- <p>Present: ${counts.Present||0} | Absent: ${counts.Absent||0} | Leave: ${counts.Leave||0}</p>`;
+ reportOut.innerHTML=
+ `<p>Date: ${d}</p>
+ <p>Present: ${counts.Present||0} |
+ Absent: ${counts.Absent||0} |
+ Leave: ${counts.Leave||0}</p>`;
 }
 
 function exportCSV(){
- const rows=[["Name","Class","Parent Phone"],...Object.values(students).map(s=>[s.name,s.class,s.phone||""])];
- const csv=rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(",")).join("\n");
+ const rows=[
+ ["Name","Class","Parent Phone"],
+ ...Object.values(students).map(s=>[s.name,s.class,s.phone||""])
+ ];
+
+ const csv=rows.map(r=>
+ r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(",")
+ ).join("\n");
+
  const a=document.createElement("a");
  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
  a.download="LAPS_Students.csv";
@@ -269,11 +347,18 @@ function exportCSV(){
 }
 
 function esc(x){
- return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))
+ return String(x??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;",
+ "<":"&lt;",
+ ">":"&gt;",
+ '"':"&quot;",
+ "'":"&#39;"
+ }[c]));
 }
 
-if("serviceWorker" in navigator)
+if("serviceWorker" in navigator){
  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
 </script>
 </body>
 </html>
