@@ -3,98 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>LAPS Attendance</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#123b65">
-
+<title>LAPS London Academic Plan School</title>
+<meta name="theme-color" content="#c91d28">
 <style>
 *{box-sizing:border-box}
-body{font-family:Arial,sans-serif;margin:0;background:#f3f6fa;color:#172033}
-header{background:#123b65;color:white;padding:16px;text-align:center}
-main{max-width:1000px;margin:auto;padding:14px}
-.card{background:white;padding:16px;border-radius:12px;margin:12px 0;box-shadow:0 2px 8px #0001}
-input,select,button{padding:10px;margin:5px 2px;border:1px solid #ccd4df;border-radius:7px;font-size:15px}
-button{background:#123b65;color:white;border:0;cursor:pointer}
-button.secondary{background:#64748b}
-button.danger{background:#b42318}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid #dbe1e8;padding:8px;text-align:left}
-th{background:#edf2f7}
-.hidden{display:none}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row>*{flex:1;min-width:130px}
-.small{font-size:12px;color:#667085}
-@media(max-width:600px){table{font-size:13px}th,td{padding:5px}}
+body{margin:0;font-family:Arial,sans-serif;background:#fff9e6;color:#263238}
+header{background:#c91d28;color:#fff;text-align:center;padding:14px 10px 20px;border-bottom:5px solid #ffe45c}
+.logo{width:62px;height:62px;object-fit:contain;background:#fff;border-radius:12px;padding:4px}
+header h2{margin:5px 0;color:#ffe45c;font-size:22px}
+header p{margin:4px 0;font-size:14px}
+header h3{margin:12px 0 0;font-size:17px}
+main{padding:10px;max-width:1200px;margin:auto}
+.panel{background:#fff;border:2px solid #ffe45c;border-radius:10px;padding:14px;margin:10px 0}
+nav{display:flex;gap:5px;overflow-x:auto;background:#173e68;padding:8px;border-radius:8px;margin:10px 0}
+nav button{min-width:130px;flex:1;background:#28a9dc;color:#123b65;font-weight:bold}
+button{border:0;border-radius:6px;padding:10px 13px;background:#d9232e;color:white;font-weight:bold;cursor:pointer;margin:3px}
+input,select{padding:10px;border:1px solid #ddd;border-radius:6px;width:100%;margin:4px 0;font-size:15px}
+label{display:block;margin-top:8px}
+table{width:100%;border-collapse:collapse;margin:10px 0;background:white}
+th{background:#fff0a8;text-align:left}
+th,td{border:1px solid #e7e2d5;padding:9px}
+.flex{display:flex;gap:8px;flex-wrap:wrap}
+.flex>*{flex:1;min-width:130px}
+.hide{display:none!important}
+.note{font-size:13px;color:#666}
+.login{max-width:420px;margin:25px auto}
+@media(max-width:600px){th,td{padding:6px;font-size:13px}nav button{min-width:115px;padding:9px 5px}.panel{padding:10px}}
 </style>
 </head>
-
 <body>
+
 <header>
-<h2>LAPS London Academic Plan School</h2>
-<div>Attendance Management</div>
+<img class="logo" src="laps-icon-192.png" onerror="this.style.display='none'" alt="LAPS logo">
+<h2>LAPS</h2>
+<p>London Academic Plan School</p>
+<h3>Attendance Management System</h3>
 </header>
 
 <main>
-<section class="card" id="loginBox">
-<h3>Login</h3>
-<input id="email" type="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
+<section id="loginPanel" class="panel login">
+<h3>Staff Login</h3>
+<label>Email</label><input id="loginEmail" type="email" placeholder="Email address">
+<label>Password</label><input id="loginPassword" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
-<p class="small">Authorized school staff only.</p>
+<p class="note">Authorized school staff only.</p>
 </section>
 
-<section id="app" class="hidden">
+<section id="dashboard" class="hide">
+<div class="panel">Welcome: <b id="who"></b> <button onclick="logout()">Logout</button></div>
 
-<div class="card row">
-<div id="welcome"></div>
-<button class="secondary" onclick="logout()">Logout</button>
+<nav>
+<button onclick="showTab('attendance')">Attendance</button>
+<button onclick="showTab('students')">Students</button>
+<button onclick="showTab('reports')">Reports</button>
+<button onclick="showTab('promotion')">Promotion</button>
+<button id="settingsNav" onclick="showTab('settings')">Settings</button>
+</nav>
+
+<section id="attendance" class="panel tab">
+<h3>Daily Attendance</h3>
+<label>Date</label><input id="attDate" type="date">
+<label>Class</label><select id="attClass"><option value="">Select Class</option></select>
+<div class="flex">
+<button onclick="loadAttendance()">Load Students</button>
+<button onclick="markAll('Present')">All Present</button>
+<button onclick="markAll('Absent')">All Absent</button>
 </div>
-
-<div class="card">
-<h3>Student Register</h3>
-<div class="row">
-<input id="sname" placeholder="Student name">
-<input id="sclass" placeholder="Class">
-<input id="sphone" placeholder="Parent WhatsApp (03...)">
-<button id="addStudentBtn" onclick="addStudent()">Add Student</button>
-</div>
-
 <table>
-<thead><tr><th>Name</th><th>Class</th><th>Parent phone</th><th>Action</th></tr></thead>
+<thead><tr><th>Student</th><th>Status</th><th>WhatsApp</th></tr></thead>
+<tbody id="attRows"></tbody>
+</table>
+<button onclick="saveAttendance()">Save Attendance</button>
+</section>
+
+<section id="students" class="panel tab hide">
+<h3>Student Register</h3>
+<div id="studentForm" class="flex">
+<input id="stName" placeholder="Student name">
+<input id="stRoll" placeholder="Roll No">
+<input id="stClass" placeholder="Class/Section">
+<input id="stParent" placeholder="Parent name">
+<input id="stPhone" placeholder="Parent WhatsApp (03...)">
+<button onclick="addStudent()">Add Student</button>
+</div>
+<button onclick="exportStudents()">Export Students CSV</button>
+<table>
+<thead><tr><th>Name</th><th>Roll</th><th>Class</th><th>Parent</th><th>WhatsApp</th><th>Action</th></tr></thead>
 <tbody id="studentRows"></tbody>
 </table>
-</div>
+</section>
 
-<div class="card">
-<h3>Daily Attendance</h3>
-<div class="row">
-<input type="date" id="date">
-<select id="classFilter" onchange="loadAttendance()">
-<option value="">All classes</option>
-</select>
-<button onclick="loadAttendance()">Load</button>
-<button class="secondary" onclick="markAll('Present')">All Present</button>
-<button class="secondary" onclick="markAll('Absent')">All Absent</button>
-</div>
+<section id="reports" class="panel tab hide">
+<h3>Attendance Reports</h3>
+<label>Report date</label><input id="repDate" type="date">
+<label>Class (blank = all)</label><select id="repClass"><option value="">All classes</option></select>
+<button onclick="makeReport()">Generate Report</button>
+<button onclick="exportAttendance()">Export Attendance CSV</button>
+<div id="reportResult"></div>
+</section>
 
-<table>
-<thead><tr><th>Student</th><th>Status</th><th>Parent</th></tr></thead>
-<tbody id="attendanceRows"></tbody>
-</table>
+<section id="promotion" class="panel tab hide">
+<h3>Student Promotion</h3>
+<p>Admin can update student class from Student Register.</p>
+</section>
 
-<button onclick="saveAttendance()">Save Attendance</button>
-</div>
-
-<div class="card">
-<h3>Attendance Report</h3>
-<div class="row">
-<input type="date" id="reportDate">
-<button onclick="report()">Show Report</button>
-<button class="secondary" onclick="exportCSV()">Export Students CSV</button>
-</div>
-<div id="reportOut"></div>
-</div>
-
+<section id="settings" class="panel tab hide">
+<h3>Settings & Backup</h3>
+<button onclick="backup()">Backup JSON</button>
+<label>Restore JSON backup</label><input type="file" id="restoreFile" accept=".json">
+<button onclick="restore()">Restore Backup</button>
+<p class="note">Database backup includes students and attendance.</p>
+</section>
 </section>
 </main>
 
@@ -104,263 +123,158 @@ th{background:#edf2f7}
 
 <script>
 const firebaseConfig={
- apiKey:"AIzaSyBTlS98na0XljQUKaOU-_s3J2Seyy1BuIo",
- authDomain:"laps-attendance.firebaseapp.com",
- databaseURL:"https://laps-attendance-default-rtdb.asia-southeast1.firebasedatabase.app",
- projectId:"laps-attendance",
- storageBucket:"laps-attendance.appspot.com",
- messagingSenderId:"723946421153",
- appId:"1:723946421153:web:e4c35ee964c48ca6c429e0",
- measurementId:"G-5MG5W8Q444"
+apiKey:"AIzaSyBTlS98na0XljQUKaOU-_s3J2Seyy1BuIo",
+authDomain:"laps-attendance.firebaseapp.com",
+databaseURL:"https://laps-attendance-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId:"laps-attendance",
+storageBucket:"laps-attendance.appspot.com",
+messagingSenderId:"723946421153",
+appId:"1:723946421153:web:e4c35ee964c48ca6c429e0",
+measurementId:"G-5MG5W8Q444"
 };
 
 firebase.initializeApp(firebaseConfig);
-
-const auth=firebase.auth();
-const db=firebase.database();
+const auth=firebase.auth(),db=firebase.database();
 const ADMIN="msarwars226@gmail.com";
-
-let user=null;
-let isAdmin=false;
-let students={};
-let records={};
-let attendanceStatus={};
-let attendanceScope="";
-
-document.getElementById("date").value=new Date().toISOString().slice(0,10);
-document.getElementById("reportDate").value=document.getElementById("date").value;
+let user=null,isAdmin=false,students={},statusMap={},scope="";
+const $=id=>document.getElementById(id);
+const today=new Date().toISOString().slice(0,10);
+$("attDate").value=today;$("repDate").value=today;
 
 auth.onAuthStateChanged(async u=>{
- user=u;
-
- document.getElementById("loginBox").classList.toggle("hidden",!!u);
- document.getElementById("app").classList.toggle("hidden",!u);
-
- if(u){
-  isAdmin=(u.email||"").toLowerCase()===ADMIN.toLowerCase();
-  document.getElementById("welcome").textContent="Logged in: "+u.email;
-  document.getElementById("addStudentBtn").classList.toggle("hidden",!isAdmin);
-
-  await loadStudents();
-  await loadAttendance();
- }
+user=u;
+$("loginPanel").classList.toggle("hide",!!u);
+$("dashboard").classList.toggle("hide",!u);
+if(!u)return;
+isAdmin=(u.email||"").toLowerCase()===ADMIN.toLowerCase();
+$("who").textContent=u.email;
+$("settingsNav").classList.toggle("hide",!isAdmin);
+$("studentForm").classList.toggle("hide",!isAdmin);
+await getStudents();
 });
 
 async function login(){
- try{
-  await auth.signInWithEmailAndPassword(email.value.trim(),password.value);
- }catch(e){
-  alert(e.message);
- }
+try{await auth.signInWithEmailAndPassword($("loginEmail").value.trim(),$("loginPassword").value)}
+catch(e){alert(e.message)}
+}
+function logout(){auth.signOut()}
+function showTab(id){
+document.querySelectorAll(".tab").forEach(x=>x.classList.add("hide"));
+$(id).classList.remove("hide");
+if(id==="attendance")loadAttendance();
 }
 
-function logout(){
- auth.signOut();
+async function getStudents(){
+let s=await db.ref("students").once("value");
+students=s.val()||{};
+renderStudents();fillClasses();
 }
-
-async function loadStudents(){
- const s=await db.ref("students").once("value");
- students=s.val()||{};
- renderStudents();
- populateClasses();
+function fillClasses(){
+let cs=[...new Set(Object.values(students).map(s=>s.class).filter(Boolean))].sort();
+$("attClass").innerHTML='<option value="">Select Class</option>'+cs.map(c=>`<option>${esc(c)}</option>`).join("");
+$("repClass").innerHTML='<option value="">All classes</option>'+cs.map(c=>`<option>${esc(c)}</option>`).join("");
 }
-
 function renderStudents(){
- studentRows.innerHTML=Object.entries(students).map(([id,s])=>
- `<tr>
- <td>${esc(s.name)}</td>
- <td>${esc(s.class)}</td>
- <td>${esc(s.phone||"")}</td>
- <td>${isAdmin?`<button class="danger" onclick="deleteStudent('${id}')">Delete</button>`:"-"}</td>
- </tr>`
- ).join("");
+$("studentRows").innerHTML=Object.entries(students).map(([id,s])=>`<tr>
+<td>${esc(s.name)}</td><td>${esc(s.roll||"")}</td><td>${esc(s.class||"")}</td>
+<td>${esc(s.parent||"")}</td><td>${esc(s.phone||"")}</td>
+<td>${isAdmin?`<button onclick="delStudent('${id}')">Delete</button>`:"—"}</td></tr>`).join("");
 }
-
 async function addStudent(){
- if(!isAdmin)return alert("Admin only");
-
- const name=sname.value.trim();
- const cls=sclass.value.trim();
- const phone=sphone.value.trim();
-
- if(!name||!cls){
-  alert("Student name aur class likhein");
-  return;
- }
-
- const ref=db.ref("students").push();
- await ref.set({name,class:cls,phone});
-
- sname.value="";
- sclass.value="";
- sphone.value="";
-
- await loadStudents();
+if(!isAdmin)return alert("Admin only");
+let name=$("stName").value.trim(),cls=$("stClass").value.trim();
+if(!name||!cls)return alert("Name aur class zaroor likhein");
+await db.ref("students").push({
+name,roll:$("stRoll").value.trim(),class:cls,
+parent:$("stParent").value.trim(),phone:$("stPhone").value.trim()
+});
+["stName","stRoll","stClass","stParent","stPhone"].forEach(x=>$(x).value="");
+getStudents();
 }
-
-async function deleteStudent(id){
- if(!isAdmin)return alert("Admin only");
-
- if(confirm("Student delete karna hai?")){
-  await db.ref("students/"+id).remove();
-  await loadStudents();
-  loadAttendance();
- }
+async function delStudent(id){
+if(isAdmin&&confirm("Delete student?")){
+await db.ref("students/"+id).remove();getStudents();
 }
-
-function populateClasses(){
- const classes=[...new Set(Object.values(students).map(s=>s.class))].sort();
-
- classFilter.innerHTML=
- '<option value="">All classes</option>'+
- classes.map(c=>`<option>${esc(c)}</option>`).join("");
 }
 
 async function loadAttendance(){
- if(!user)return;
-
- const date=document.getElementById("date").value;
- const cls=classFilter.value;
- const scope=date+"|"+cls;
-
- if(scope!==attendanceScope){
-  attendanceStatus={};
-  attendanceScope=scope;
- }
-
- const snap=await db.ref("attendance/"+date).once("value");
- records[date]=snap.val()||{};
-
- const list=Object.entries(students).filter(([id,s])=>
- s.active!==false&&(!cls||s.class===cls)
- );
-
- attendanceRows.innerHTML=list.map(([id,s])=>{
- const status=attendanceStatus[id]??records[date][id]?.status??"Present";
- attendanceStatus[id]=status;
-
- return `<tr>
- <td>${esc(s.name)} <span class="small">(${esc(s.class)})</span></td>
- <td>
- <select onchange="setStatus('${id}',this.value)">
- <option ${status==="Present"?"selected":""}>Present</option>
- <option ${status==="Absent"?"selected":""}>Absent</option>
- <option ${status==="Leave"?"selected":""}>Leave</option>
- </select>
- </td>
- <td>${isAdmin&&status==="Absent"?`<button onclick="sendWA('${id}')">WhatsApp</button>`:"-"}</td>
- </tr>`;
- }).join("");
+let date=$("attDate").value,cls=$("attClass").value;
+if(!cls)return alert("Please select class");
+let key=date+"|"+cls;
+if(scope!==key){statusMap={};scope=key}
+let snap=await db.ref("attendance/"+date).once("value"),rec=snap.val()||{};
+let list=Object.entries(students).filter(([i,s])=>s.class===cls&&s.active!==false);
+$("attRows").innerHTML=list.map(([id,s])=>{
+let v=statusMap[id]??rec[id]?.status??"Present";statusMap[id]=v;
+return `<tr><td>${esc(s.name)}</td><td>
+<select onchange="setStatus('${id}',this.value)">
+<option ${v==="Present"?"selected":""}>Present</option>
+<option ${v==="Absent"?"selected":""}>Absent</option>
+<option ${v==="Leave"?"selected":""}>Leave</option>
+</select></td><td>${isAdmin&&v==="Absent"?`<button onclick="wa('${id}')">WhatsApp</button>`:"—"}</td></tr>`;
+}).join("");
 }
-
-function setStatus(id,v){
- attendanceStatus[id]=v;
- loadAttendance();
-}
-
+function setStatus(id,v){statusMap[id]=v;loadAttendance()}
 function markAll(v){
- Object.entries(students)
- .filter(([id,s])=>s.active!==false&&(!classFilter.value||s.class===classFilter.value))
- .forEach(([id])=>attendanceStatus[id]=v);
-
- loadAttendance();
+Object.entries(students).filter(([id,s])=>s.class===$("attClass").value).forEach(([id])=>statusMap[id]=v);
+loadAttendance();
 }
-
 async function saveAttendance(){
- const date=document.getElementById("date").value;
- const updates={};
-
- Object.entries(attendanceStatus).forEach(([id,status])=>{
-  updates[id]={
-   status,
-   studentName:students[id]?.name||"",
-   class:students[id]?.class||""
-  };
- });
-
- await db.ref("attendance/"+date).update(updates);
-
- alert("Attendance save ho gai");
- loadAttendance();
+let date=$("attDate").value,updates={};
+Object.entries(statusMap).forEach(([id,status])=>updates[id]={
+status,studentName:students[id]?.name||"",class:students[id]?.class||""
+});
+await db.ref("attendance/"+date).update(updates);
+alert("Attendance saved");loadAttendance();
 }
 
-function sendWA(id){
- if(!isAdmin)return alert("Admin only");
+function wa(id){
+if(!isAdmin)return alert("Admin only");
+let s=students[id];
+if(!s.phone)return alert("Parent WhatsApp number missing");
+let phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
+let msg=`Assalam-o-Alaikum Dear Parents,
 
- const s=students[id];
+Your child ${s.name} was marked Absent today at LAPS London Academic Plan School.
 
- if(!s?.phone){
-  alert("Parent phone number available nahi");
-  return;
- }
-
- const phone=s.phone.replace(/\D/g,"").replace(/^0/,"92");
-
- const msg=`Assalam-o-Alaikum Dear Parents,
-
-Your child ${s.name} was marked Absent today from LAPS London Academic Plan School.
-
-Kindly share the reason for your child's absence.
+Kindly let us know the reason for your child's absence.
 
 Thank you for your cooperation.
-
-Regards,
 LAPS Administration`;
-
- window.open(
- "https://wa.me/"+phone+"?text="+encodeURIComponent(msg),
- "_blank"
- );
+window.open("https://wa.me/"+phone+"?text="+encodeURIComponent(msg),"_blank");
 }
 
-async function report(){
- const d=reportDate.value;
- const s=await db.ref("attendance/"+d).once("value");
- const r=s.val()||{};
- const counts={Present:0,Absent:0,Leave:0};
-
- Object.values(r).forEach(x=>
- counts[x.status]=(counts[x.status]||0)+1
- );
-
- reportOut.innerHTML=
- `<p>Date: ${d}</p>
- <p>Present: ${counts.Present||0} |
- Absent: ${counts.Absent||0} |
- Leave: ${counts.Leave||0}</p>`;
+async function makeReport(){
+let d=$("repDate").value,cls=$("repClass").value;
+let s=await db.ref("attendance/"+d).once("value"),r=s.val()||{};
+let n={Present:0,Absent:0,Leave:0,Unmarked:0};
+Object.entries(students).filter(([id,x])=>!cls||x.class===cls).forEach(([id])=>{
+let st=r[id]?.status||"Unmarked";n[st]=(n[st]||0)+1
+});
+$("reportResult").innerHTML=`<p>Present: ${n.Present} | Absent: ${n.Absent} | Leave: ${n.Leave} | Unmarked: ${n.Unmarked}</p>`;
 }
-
-function exportCSV(){
- const rows=[
- ["Name","Class","Parent Phone"],
- ...Object.values(students).map(s=>[s.name,s.class,s.phone||""])
- ];
-
- const csv=rows.map(r=>
- r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(",")
- ).join("\n");
-
- const a=document.createElement("a");
- a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
- a.download="LAPS_Students.csv";
- a.click();
+function csvDownload(name,rows){
+let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replaceAll('"','""')+'"').join(",")).join("\n");
+let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name;a.click();
 }
-
-function esc(x){
- return String(x??"").replace(/[&<>"']/g,c=>({
- "&":"&amp;",
- "<":"&lt;",
- ">":"&gt;",
- '"':"&quot;",
- "'":"&#39;"
- }[c]));
+function exportStudents(){
+csvDownload("LAPS_Students.csv",[["Name","Roll","Class","Parent","Phone"],...Object.values(students).map(s=>[s.name,s.roll,s.class,s.parent,s.phone])]);
 }
-
-if("serviceWorker" in navigator){
- navigator.serviceWorker.register("sw.js").catch(()=>{});
+async function exportAttendance(){
+let d=$("repDate").value,s=await db.ref("attendance/"+d).once("value"),r=s.val()||{};
+csvDownload("LAPS_Attendance.csv",[["Name","Roll","Class","Status"],...Object.entries(students).filter(([id,s])=>!$("repClass").value||s.class===$("repClass").value).map(([id,s])=>[s.name,s.roll,s.class,r[id]?.status||"Unmarked"])]);
 }
+async function backup(){
+let a=await db.ref().once("value"),blob=new Blob([JSON.stringify(a.val(),null,2)],{type:"application/json"}),link=document.createElement("a");
+link.href=URL.createObjectURL(blob);link.download="LAPS_Backup.json";link.click();
+}
+async function restore(){
+if(!isAdmin)return alert("Admin only");
+let f=$("restoreFile").files[0];if(!f)return alert("Backup file select karein");
+let data=JSON.parse(await f.text());
+if(confirm("Restore database backup?")){await db.ref().set(data);alert("Backup restored");location.reload()}
+}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 </script>
 </body>
 </html>
-
-
